@@ -17,7 +17,7 @@ In this "Choose Your Own"-project, I have chosen to use the dataset from Kaggle.
 
 A various number of things could contribute to determining, how much should be charged for a visitor to stay in an Airbnb. Thus, the purpose of the project is to try to predict, which factors (variable) that affect the price of an Airbnb in Singapore the most. 
 
-##### Load all the packages required.
+ Load all the packages required.
 
 ```{r}
 library("readr", lib.loc="/Library/Frameworks/R.framework/Versions/3.6/Resources/library")
@@ -28,13 +28,15 @@ library("wordcloud", lib.loc="/Library/Frameworks/R.framework/Versions/3.6/Resou
 library("SnowballC", lib.loc="/Library/Frameworks/R.framework/Versions/3.6/Resources/library")
 ```
 
-##### Read the file with the singapore airbnb data.
+Read the file with the Singapore Airbnb data.
 
 ```{r}
+#Read the file with the Singapore Airbnb data. 
+
 data <- read_csv("./data.csv")
 ```
 
-##### Then you need to create the test set, which will be 10% of the whole data set. The test set will be kept till the very end and will ONLY be used to run the finally chosen algorithm on.
+Then you need to create the test set, which will be 10% of the whole data set. The test set will be kept till the very end and will ONLY be used to run the finally chosen algorithm on.
 
 ```{r}
 # Create test set as 10% of the dataset
@@ -44,7 +46,8 @@ airbnb_singapore <- data[-test_index,]
 temp <- data[test_index,]
 ```
 
-##### You need to make sure that the host id that is present in the test set is also present in training set.
+You need to make sure that the host id that is present in the test set is also present in training set.
+
 ```{r}
 # Make sure that host_id in the test set are present in the airbnb_singapore set
 test_set <- temp %>%
@@ -55,7 +58,8 @@ airbnb_singapore <- rbind(airbnb_singapore, removed)
 rm(temp, data, removed)
 ```
 
-##### A validation set is also created and this set is meant to test the intermediary models when training, before deciding on the best and final model.
+A validation set is also created and this set is meant to test the intermediary models when training, before deciding on the best and final model.
+
 ```{r}
 # Split airbnb_singapore data further in to validation and training sets
 # Validation set will be 10% of current airbnb_singapore data
@@ -66,7 +70,7 @@ train_set <- airbnb_singapore[-test_index2,]
 temp2 <- airbnb_singapore[test_index2,]
 ```
 
-##### As done with the creation of the test set, we need to make sure that host_id in the validation set is also in the training set.
+As done with the creation of the test set, we need to make sure that host_id in the validation set is also in the training set.
 
 ```{r}
 # Make sure host_id in validation is also in training set
@@ -80,35 +84,35 @@ rm(temp2, removed)
 
 ## 1.2 Exploring the data
 
-##### The next step is to explore the data before analysing it. As the data is taken from Kaggle.com and is ready to use, not much data cleaning was necessesary to do beforehand.
+The next step is to explore the data before analysing it. As the data is taken from Kaggle.com and is ready to use, not much data cleaning was necessesary to do beforehand.
 
 ```{r}
 # Check class of data
 class(airbnb_singapore)
 ```
 
-##### We can see that our data is a data frame.
+We can see that our data is a data frame.
 
 ```{r}
 # Get brief overview of the data
 glimpse(airbnb_singapore)
 ```
 
-##### From above, it is shown that there are 16 variables in the data set. id is used to identify the Airbnb listing and is unique for each listing. host_id is used to identify the host responsible for the respective listing - it is possible for a host to have more than one listing, if they rent out more than one Airbnb.
+From above, it is shown that there are 16 variables in the data set. id is used to identify the Airbnb listing and is unique for each listing. host_id is used to identify the host responsible for the respective listing - it is possible for a host to have more than one listing, if they rent out more than one Airbnb.
  
 ```{r}
 # See a summary of the data
 summary(airbnb_singapore)
 ```
 
-##### Looking at this summary, we see that the minimum minimum price shown is 0 Singaporean dollars per night while the maximum shown is 10000 Singaporean dollars per night.
+Looking at this summary, we see that the minimum minimum price shown is 0 Singaporean dollars per night while the maximum shown is 10000 Singaporean dollars per night.
 
 ```{r}
 # Check whether there are any missing values
 anyNA(airbnb_singapore)
 ```
 
-##### There are some missing values in the dataset. We might have to process that before starting the analysis.
+There are some missing values in the dataset. We might have to process that before starting the analysis.
 
 ```{r}
 # Show unique values of airbnb prices
@@ -118,56 +122,56 @@ unique(airbnb_singapore$price)
 n_distinct(unique(airbnb_singapore$price))
 ```
 
-##### There is a great range of various unique prices, which is due to the continuous nature of this variable. In fact, there are 364 different prices in the dataset.
+There is a great range of various unique prices, which is due to the continuous nature of this variable. In fact, there are 364 different prices in the dataset.
 
-##### Next, we can show how many hosts, listings, regions, neighbourhoods and types of rooms the dataset contains in total.
+Next, we can show how many hosts, listings, regions, neighbourhoods and types of rooms the dataset contains in total.
 
 ```{r}
 # Show number of hosts, listings, regions, neighbourhoods and room types
 airbnb_singapore %>% summarize(n_hosts = n_distinct(host_id), n_listings = n_distinct(id), n_regions = n_distinct(neighbourhood_group), n_neighbourhoods = n_distinct(neighbourhood), n_types = n_distinct(room_type))
 ```
 
-##### This shows that there are 2705 hosts, 7305 listings, 5 regions, 43 neighbourhoods and 3 types of rooms possible to rent. The fact that the number of hosts is less than half the number of listings, confirms the earlier statement claiming that some hosts will likely be hosts for more than one listing.
+This shows that there are 2705 hosts, 7305 listings, 5 regions, 43 neighbourhoods and 3 types of rooms possible to rent. The fact that the number of hosts is less than half the number of listings, confirms the earlier statement claiming that some hosts will likely be hosts for more than one listing.
 
-##### Next, we will look at the minimum nights required in order to stay in an Airbnb in Singapore.
+Next, we will look at the minimum nights required in order to stay in an Airbnb in Singapore.
 ```{r}
 # Show average minimum nights required
 mean(airbnb_singapore$minimum_nights)
 ```
 
-##### The average minimum number of nights required to stay at an Airbnb is 17.59 nights. This indicates that many owners require you to stay for a longer period of time in order to rent out their accommodation. However, it could also be an indication that there are many listings available on the Singaporean Airbnb platform with the purpose of long duration rental.
+The average minimum number of nights required to stay at an Airbnb is 17.59 nights. This indicates that many owners require you to stay for a longer period of time in order to rent out their accommodation. However, it could also be an indication that there are many listings available on the Singaporean Airbnb platform with the purpose of long duration rental.
 
-##### We can also show what the average price level is per night in Singapore.
+We can also show what the average price level is per night in Singapore.
 ```{r}
 # Show average price per night
 mean(airbnb_singapore$price)
 ```
 
-##### The average price is 168 Singaporean dollars.
+The average price is 168 Singaporean dollars.
 
 # Visualisation of the data 
 
-##### It is necessary to review how our data looks before we proceed to the analysing stage of the project. 
+It is necessary to review how our data looks before we proceed to the analysing stage of the project. 
 
-##### First, a histogram is created to show the distribution of prices among the various listings.
+First, a histogram is created to show the distribution of prices among the various listings.
 ```{r}
 # Price distributions in the training set
 airbnb_singapore %>% ggplot(aes(price)) + geom_histogram(color = "#000000", fill = "#FFCCCC") +
 ggtitle("Distribution of prices across Airbnbs")
 ```
 
-##### From the histogram above, we see that majority of the Airbnb listings are in the cheaper end of the scale. The further to the right one looks, the fewer Airbnbs are typically to find at that price level. It also shows that there are many various price levels once the Airbnb costs less than 25 Singaporean dollars per night.
+From the histogram above, we see that majority of the Airbnb listings are in the cheaper end of the scale. The further to the right one looks, the fewer Airbnbs are typically to find at that price level. It also shows that there are many various price levels once the Airbnb costs less than 25 Singaporean dollars per night.
 
-##### Due to the continuous nature of the prices and the large variation in prices, it is a bit hard to interpret the above histogram. Instead, we can also see the top 20 most common prices
+Due to the continuous nature of the prices and the large variation in prices, it is a bit hard to interpret the above histogram. Instead, we can also see the top 20 most common prices
 
 ```{r}
 most_common_prices <- airbnb_singapore %>% group_by(price) %>% summarize(count = n()) %>% top_n(20, count) %>% arrange(desc(count))
 most_common_prices
 ```
 
-##### It is found that 50 Singaporean dollars is the most common price with 203 priced at this level. Secondly, 60 Singaporean dollars is commonly used to price Airbnbs as well.
+It is found that 50 Singaporean dollars is the most common price with 203 priced at this level. Secondly, 60 Singaporean dollars is commonly used to price Airbnbs as well.
 
-##### A display of the availability distribution can be shown as well.
+A display of the availability distribution can be shown as well.
 
 ```{r}
 #Check distributions of availability in the training set
@@ -175,9 +179,9 @@ airbnb_singapore %>% ggplot(aes(availability_365)) + geom_histogram(bins = 20, f
 ggtitle("Availability")
 ```
 
-##### The graph shows that while some are only available less than 300 days a year, the far majority of Airbnbs are actually available for rent all 365 days or at least close to all.
+The graph shows that while some are only available less than 300 days a year, the far majority of Airbnbs are actually available for rent all 365 days or at least close to all.
 
-##### The distribution below shows the number of listings in each regions. Each listing have a unique id, thus, by counting the id variable, we assume this will give us the total number of listings, as an Airbnb should only be listed on the website once.
+The distribution below shows the number of listings in each regions. Each listing have a unique id, thus, by counting the id variable, we assume this will give us the total number of listings, as an Airbnb should only be listed on the website once.
 
 ```{r}
 #Check distributions of listings in the various regions in training set
@@ -185,7 +189,8 @@ airbnb_singapore %>% group_by(neighbourhood_group) %>% ggplot(aes(n)) + geom_his
 ggtitle("Number of listings in regions")
 ```
 
-##### Show the neighbourhoods with the most listings.
+Show the neighbourhoods with the most listings.
+ 
 ```{r}
 
 #First, save the number of listings in each neighbourhood.
@@ -202,3 +207,25 @@ ggtitle("Popular neighbourhoods")
 
 ```
 
+From this, we can see that some of the neighbourhoods with most listings are Kallang, Geylang, Novena, Rochor and Bukit Merah.
+
+We can also check the distribution of the number of reviews.
+
+```{r}
+#Check distributions of review count in the training set
+airbnb_singapore %>% ggplot(aes(number_of_reviews)) + geom_histogram(bins = 30, fill = "#009999") +
+ggtitle("Reviews")
+```
+
+This shows that there are only very few who almost have up to a 5000 reviews, but most Airbnbs have below 1000 reviews. To be more specific, it is generally more common for the Airbnb's to have few or none reviews than to have a lot. This could be due to the large number of listings, leading to a great number of options for visitors. Therefore, some may not even get to be visited or reviewed very often or at all.
+
+Another step that is necessary before deciding how to predict Airbnb prices is to check how many of the variables are correlated with each other. If two or more variables are highly correlated, this could dilute the influence the individual variable has on Airbnb prices, as they could initially explain the same thing.
+
+```{r}
+#Check whether the variables are correlated.
+cor(airbnb_singapore, method = c("id", "name", "host_id", "neighbourhood_group", "neighbourhood", "latitude", "longitude", "room_type", "price", "minimum_nights", "number_of_reviews", "last_review", "reviews_per_month", "calculated_host_listings_count", "availability_365"))
+```
+
+#Data analysis
+
+Now that we have reviewed and visualised the data, it is time to decide, which algorithm that does the best job at predicting the price of renting an Airbnb in Singapore.
