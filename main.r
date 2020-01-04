@@ -64,5 +64,9 @@ mean(airbnb_singapore$price)
 # Visualisation of the data 
 # Price distributions in the training set
 airbnb_singapore %>% count(price) %>%
-ggplot(aes(n)) + geom_histogram(fill = "deepskyblue4", color = "azure4", bins = 30) +
+ggplot(aes(n)) + geom_histogram(fill = "#FF3366", color = "#000000", bins = 30) +
 scale_x_log10() + ggtitle("Prices of vs. number of listings") + xlab("Prices") + ylab("Listings")
+
+#Check distributions of ratings in the training set
+airbnb_singapore %>% ggplot(aes(price)) + geom_histogram(bins = 30, binwidth=0.2, color = "azure3", fill = "deepskyblue4") +
+ggtitle("Pricing distribution")
