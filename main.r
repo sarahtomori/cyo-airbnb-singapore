@@ -222,24 +222,35 @@ avg_price
 #Check squared loss
 mean((avg_price - validation$price)^2)
 
-#Create lm model
-fit <- lm(price ~ host_id + longitude + latitude + latitude + number_of_reviews + calculated_host_listings_count + neighbourhood_group + neighbourhood + room_type + calculated_host_listings_count + last_review + availability_365, data = airbnb_singapore)
-step(fit, direction = "backward", trace = FALSE) #use backward elimination to remove redundant variables
+#Replace missing values with 0
+airbnb_singapore[is.na(airbnb_singapore)] <- 0
 
-#Let's look at the coefficients
-fit$coefficients
+#Replace missing values in the last_review variable with the date of the first review
+airbnb_singapore$last_review <- ifelse(is.na(airbnb_singapore$last_review), as.Date(2013-10-21,  origin = "2013-10-21", tz = "GMT"), airbnb_singapore$last_review)
 
-#Save neighbourhood and room_type variables as factor in both training and validation sets
+#Save neighbourhood, neighbourhood_group and room_type variables as factor in both training and validation sets
 validation$neighbourhood <- as.factor(validation$neighbourhood)
 airbnb_singapore$neighbourhood <- as.factor(airbnb_singapore$neighbourhood)
 validation$room_type <- as.factor(validation$room_type)
 airbnb_singapore$room_type <- as.factor(airbnb_singapore$room_type)
+validation$neighbourhood_group <- as.factor(validation$neighbourhood_group)
+airbnb_singapore$neighbourhood_group <- as.factor(airbnb_singapore$neighbourhood_group)
 
 #add all levels of 'neighbourhood' in 'validation' dataset to fit$xlevels[["neighbourhood"]] in the fit object
 fit$xlevels[["neighbourhood"]] <- union(fit$xlevels[["neighbourhood"]], levels(validation[["neighbourhood"]]))
 
 #add all levels of 'room_type' in 'validation' dataset to fit$xlevels[["room_type"]] in the fit object
 fit$xlevels[["room_type"]] <- union(fit$xlevels[["room_type"]], levels(validation[["room_type"]]))
+
+#add all levels of 'neighbourhood_group' in 'validation' dataset to fit$xlevels[["neighbourhood_group"]] in the fit object
+fit$xlevels[["neighbourhood_group"]] <- union(fit$xlevels[["neighbourhood_group"]], levels(validation[["neighbourhood_group"]]))
+
+#Create lm model
+fit <- lm(price ~ host_id + longitude + latitude + latitude + number_of_reviews + calculated_host_listings_count + neighbourhood_group + neighbourhood + room_type + calculated_host_listings_count + last_review + availability_365, data = airbnb_singapore)
+step(fit, direction = "backward", trace = FALSE) #use backward elimination to remove redundant variables
+
+#Let's look at the coefficients
+fit$coefficients
 
 #Use the predict function
 y_hat <- predict(fit, validation)
@@ -251,41 +262,60 @@ RMSE(validation$price, y_hat)
 #Find the earliest review date in the data set
 sort.POSIXlt(airbnb_singapore$last_review, origin = "1970-01-01", tz = "GMT")
 
-#Replace missing values in the last_review variable with the date of the first review
-airbnb_singapore$last_review <- ifelse(is.na(airbnb_singapore$last_review), as.Date(2013-10-21,  origin = "2013-10-21", tz = "GMT"), airbnb_singapore$last_review)
-
-airbnb_singapore[is.na(airbnb_singapore)] <- 0
-
+#Define the independent variables
+x_var <- data.matrix(airbnb_singapore[, c("longitude", "calculated_host_listings_count", "neighbourhood", "number_of_reviews", "room_type", "availability_365")])
+x_var <- model.matrix(airbnb_singapore$price ~ longitude + number_of_reviews + calculated_host_listings_count + neighbourhood + room_type + availability_365, data = airbnb_singapore)
+x_var <- model.matrix(airbnb_singapore$price ~ longitude + number_of_reviews + neighbourhood_group + calculated_host_listings_count + room_type + availability_365, data = airbnb_singapore)
 
 #Define the dependent variable
 y_var <- airbnb_singapore$price
 
-#Define the independent variables
-x_var <- data.matrix(airbnb_singapore[, c("host_id", "longitude", "latitude", "calculated_host_listings_count", "neighbourhood", "last_review", "room_type", "availability_365")])
-
 # Setting the range of lambda values
 lambda_seq <- 10^seq(2, -2, by = -.1)
 
-train <- data.frame(x_var, y_var)
+train_data <- data.frame(x_var, y_var)
 
-model_glmnet <- train(y_var ~ ., data = train,
-                      method = "glmnet",
-                      metric = "RMSE",
-                      na.action = na.replace,
-                      alpha = 0, lambda  = lambda_seq
+model_glmnet <- train(y_var ~ ., data = train_data,
+method = "glmnet",
+metric = "RMSE",
+na.action = na.replace,
+lambda  = lambda_seq
 )
 
 #Check the model
 summary(model_glmnet)
 model_glmnet
 
-cvfit = cv.glmnet(x_var, y_var)
-
 #Choose the optimal lambda value
 # Using cross validation glmnet
-ridge_cv <- cv.glmnet(x_var, y_var, alpha = 0, lambda = lambdas)
+ridge_cv <- cv.glmnet(x_var, y_var, lambda = lambda_seq)
 # Best lambda value
-best_lambda <- model_glmnet$lambda.min
+best_lambda <- ridge_cv$lambda.min
 best_lambda
 
+#Find the best ridge model
+best_ridge <- glmnet(x_var, y_var, alpha = 0, lambda =  best_lambda)
+
+#Get the coefficients
+coef(best_ridge)
+
+#Define y and x variables from the validation set
+y_val <- validation$price
+x_val <- data.matrix(validation[, c("longitude", "calculated_host_listings_count", "neighbourhood", "number_of_reviews", "room_type", "availability_365")])
+x_val <- model.matrix(validation$price ~ longitude + number_of_reviews + calculated_host_listings_count + neighbourhood_group + room_type + availability_365, data = validation)
+
+val_data <- data.frame(x_val, y_val)
+
+#Use predict function and fit to validation data
+glmnet_pred_val <- predict(best_ridge, s = best_lambda, newx = x_val)
+
+#Calculate the MSE
+mean((glmnet_pred_val - y_val)^2)
+#and the RMSE
+RMSE(validation$price, glmnet_pred_val)
+#and the r-squared
+rss <- sum((glmnet_pred_val - y_val) ^ 2)  ## residual sum of squares
+tss <- sum((y_val - mean(glmnet_pred_val)) ^ 2)  ## total sum of squares
+rsq <- 1 - rss/tss
+rsq
 
