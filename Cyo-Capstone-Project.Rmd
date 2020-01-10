@@ -251,14 +251,13 @@ The distribution below shows the number of listings in each regions. Each listin
 
 ```{r}
 #Check distributions of listings in the various regions in training set
-airbnb_singapore %>% ggplot(aes(neighbourhood_group)) + geom_bar(bins = 20, fill = "#3399FF") +
+airbnb_singapore %>% ggplot(aes(neighbourhood_group)) + geom_bar(fill = "#3399FF") +
 ggtitle("Number of listings in regions")
 ```
 
 From the graph above, we can see that the most popular region with the highest number of Airbnbs is the Central Region. This could indicate this number being very popular tourist destinations but also that there are many houses available, where owners like to rent it out to temporary visitors. 
 
 Next, let's see whether there is a difference in the average price levels across regions.
-
 
 ```{r}
 #Check distributions of listings in the various regions in training set
@@ -275,8 +274,9 @@ ggtitle("Average Airbnb prices of regions")
 
 ```
 
+From this, we see that the Central Region is on average the most expense region to rent an Airbnb in Singapore, followed by West Region, East Region, North-East Region and North Region, which is the cheapest.
 
-Show the neighbourhoods with the most listings.
+Additionally, we can show the neighbourhoods with the most listings.
  
 ```{r}
 
@@ -296,16 +296,15 @@ ggtitle("Popular neighbourhoods")
 
 From this, we can see that some of the neighbourhoods with most listings are Kallang, Geylang, Novena, Rochor and Bukit Merah.
 
-Let's try to create a map that gives a comprehensive view of the neighbourhoods in the different regions.A distribution of the number of the different room types is also investigated.
+Let's try to see a distribution of the number of the different room types.
 
 ```{r}
 #Check distributions of listings in the various room types in training set
-airbnb_singapore %>% ggplot(aes(room_type)) + geom_bar(bins = 20, fill = "#9999FF") +
+airbnb_singapore %>% ggplot(aes(room_type)) + geom_bar(fill = "#9999FF") +
 ggtitle("Number of listings in regions")
 ```
 
 The most common room types are entire homes or apartments and private rooms. Hotel rooms and shared rooms are much less common.
-
 
 We can also check the distribution of the number of reviews.
 
@@ -333,7 +332,7 @@ inspect(docs)
 ```
 
 
-Now, the text can be transformed, which is done using tm_map in order to replace special characters that cold be found in the text. 
+Now, the text can be transformed, which is done using tm_map in order to replace special characters that could be found in the text. These could make it harder to analyse on the words. 
 
 ```{r}
 #Replace special characters with text
@@ -344,7 +343,7 @@ docs <- tm_map(docs, toSpace, "\\|")
 docs <- tm_map(docs, toSpace, "!")
 ```
 
-The next step is to further clean the text.
+The next step is to further clean the text. This among others includes converting to lower case and removing numbers.
 
 ```{r}
 # Convert the text to lower case
@@ -381,7 +380,9 @@ colors=brewer.pal(8, "Dark2"))
 
 ```
 
-To see the 10 words are used most frequently, we can use the following code:
+The largest letter words, are the ones most often found in name descriptions of the listings.
+
+We can also see the 10 words that are used most frequently. We can use the following code:
 
 ```{r}
 #Show the 10 most frequently used words.
@@ -395,7 +396,9 @@ ylab = "Word frequencies")
 ```
 
 
-Another step that is necessary before deciding how to predict Airbnb prices is to check how many of the variables are correlated with each other. If two or more variables are highly correlated, this could dilute the influence the individual variable has on Airbnb prices, as they could initially explain the same thing.Note that only the numerical values are applied in this plot.
+Another step that is necessary before deciding how to predict Airbnb prices is to check how many of the variables are correlated with each other. If two or more variables are highly correlated, this could dilute the influence that the individual variable has on Airbnb prices, as they could 
+initially explain the same thing. Note that only the numerical values are applied in this plot.
+
 
 ```{r}
 #Check whether the variables are correlated.
@@ -421,13 +424,17 @@ corrplot(cordata.cor)
 
 The correlation matrix above shows the variables that are positively correlated on a red sclae and the negatively correlated variables as blue scale.
 
-#Data analysis
+## 3. Data analysis
 
 Now that we have reviewed and visualised the data, it is time to decide, which algorithm that does the best job at predicting the price of renting an Airbnb in Singapore. It was quite clear that it is a regression problem, as we are interested in predicting Airbnb price, which is a continuous variable.
 
-I first tried with a basic linear regression model (OLS regression) and then the Ridge and Lasso regression models.
+I first tried to look at the basic mean of prices.
+
+Afterwards, a basic linear regression model (OLS regression) was tested and then the Ridge regression model.
 
 In order to evaluate the best model, RMSE (residual mean squared error) was used to choose the model with the smallest loss, because this is what determines how close it is to predicting actual prices. R-squared is also used to predict, how much of the variation the algorithm manages to predict.
+
+We can define the function for calculating RMSE as written below.
 
 ```{r}
 #First, we define the function that calculates RMSE
@@ -436,7 +443,9 @@ sqrt(mean((true_price - predicted_price)^2, na.rm=T))
 }
 ```
 
-If we were to use the most basic guess, we would simply guess the price to be the average of all prices of listed Airbnb in Singapore.
+### 3.1 The most basic mean
+
+If we were to take the most basic guess, we would simply guess the price to be the average of all prices of listed Airbnb in Singapore. This value is calculated below.
 
 ```{r}
 #Calculate average price of Airbnb prices in Singapore
@@ -450,11 +459,16 @@ In this case, the squared loss would be
 ```{r}
 #Check squared loss
 mean((avg_price - validation$price)^2)
+RMSE(validation$price, avg_price)
 ```
 
-This number is huge and is obviously a very poor estimate of predicting the price of an Airbnb in Singapore. Prices will vary a lot depending on various factors, so the mean is not at all a good estimate. In other words, many prices will vary from the mean and the sum of these differences will eventually add up to a large number as seen above.
+This squared loss is huge and obviously a very poor estimate of predicting the price of an Airbnb in Singapore. RMSE of 180.3126 also indicates quite a bit of error from the actual price.
 
-First, we can try the most basic linear regression model. This is commonly used to for ML predictions but is a very simple model that works particularly well if there is a high level of linearity.
+Prices will vary a lot depending on various factors, so the mean is not at all a good estimate. In other words, many prices will vary from the mean and the sum of these differences will eventually add up to a large number as seen above.
+
+### 3.1 The linear regression model
+
+First, we can try commonly used linear regression model. This is often used to for ML predictions but is a very simple model that works particularly well if there is a high level of linearity.
 
 ```{r}
 
