@@ -470,13 +470,18 @@ Prices will vary a lot depending on various factors, so the mean is not at all a
 
 First, we can try commonly used linear regression model. This is often used to for ML predictions but is a very simple model that works particularly well if there is a high level of linearity.
 
-```{r}
+Due to a lot of challenges with processing missing values, I decided to set the NA's of the 'last_review' variable to the same date of the first review in the data set. For other variables they were set to 0.
 
+```{r}
 #Replace missing values in the last_review variable with the date of the first review
 airbnb_singapore$last_review <- ifelse(is.na(airbnb_singapore$last_review), as.Date(2013-10-21,  origin = "2013-10-21", tz = "GMT"), airbnb_singapore$last_review)
 
 airbnb_singapore[is.na(airbnb_singapore)] <- 0
+```
 
+For variables that are characters, they are converted to factors. It is also important to ensure that the training set and the validation set have the same levels to avoid problems when running the models later on.
+
+```{r}
 #Save neighbourhood, neighbourhood_group and room_type variables as factor in both training and validation sets
 validation$neighbourhood <- as.factor(validation$neighbourhood)
 airbnb_singapore$neighbourhood <- as.factor(airbnb_singapore$neighbourhood)
@@ -493,6 +498,13 @@ fit$xlevels[["room_type"]] <- union(fit$xlevels[["room_type"]], levels(validatio
 
 #add all levels of 'neighbourhood_group' in 'validation' dataset to fit$xlevels[["neighbourhood_group"]] in the fit object
 fit$xlevels[["neighbourhood_group"]] <- union(fit$xlevels[["neighbourhood_group"]], levels(validation[["neighbourhood_group"]]))
+```
+
+Now, we can define and run the lm model. Backward elimination was used to remove redundant variables.
+
+```{r}
+#Set seed
+set.seed(1)
 
 #Create lm model
 fit <- lm(price ~ host_id + longitude + latitude + latitude + number_of_reviews + calculated_host_listings_count + neighbourhood_group + neighbourhood + room_type + calculated_host_listings_count + availability_365, data = airbnb_singapore)
@@ -505,7 +517,7 @@ fit$coefficients
 y_hat <- predict(fit, validation)
 ```
 
-Next, we can see whether this model does any better than the basic mean.
+Next, we can see whether this model does any better than the basic mean by looking at our MSE, RMSE and r-squared.
 
 ```{r}
 #Check squared loss
@@ -519,15 +531,22 @@ rsq_lm
 ```
 
 
+RMSE is 160.6531, which is just a bit lower than what the earlier calculated mean. 
+
+### 3.1 The ridge regression model
+
 Next, the ridge regression model can be used to see if it gives us a better result. The ridge regression is often used in order to deal with the problem of multicollinearity. It uses L2 regularization to penalize the square of magnitude for the coifficients in the regression in order to minimize them.
 
 The formula looks as written below:
 LS Obj + L (sum of the square of coefficients)
 
 where L is lambda. If L = 0, then our output will be similar to that of a basic linear regression.
+
 If L is large, then coefficients will move towards zero. The glmnet package in R is used.
 
 Note: I decided the last_review variable as it contains similar information as number of reviews, and it caused a lot of issues with NAs.
+
+First, we need to define the independent variables.
 
 ```{r}
 #Define the independent variables
@@ -547,10 +566,21 @@ metric = "RMSE",
 na.action = na.replace,
 lambda  = lambda_seq
 )
+```
 
+We can check to see what the model looks like.
+
+```{r}
 #Check the model
 summary(model_glmnet)
 model_glmnet
+```
+
+We see the different variables for lambda.
+
+```{r}
+#Set seed
+set.seed(1)
 
 #Choose the optimal lambda value
 # Using cross validation glmnet
@@ -561,7 +591,7 @@ best_lambda
 
 ```
 
-Cross validation was necessary in order to punish the loss function of high coefficient values in the model. By using cross validation and finding the best_lambda, we see that the lambda providing the best value of RMSE was 0.1258925.
+Cross validation was necessary in order to punish the loss function of high coefficient values in the model. By using cross validation and finding the best_lambda, we see that the lambda providing the best value of RMSE was 0.01.
 
 Next, we continue to build the final model.
 
@@ -607,12 +637,13 @@ rsq
 
 It appears that the values of r-square and RMSE are doing worse when using the ridge regression. This indicates that tuning the parameters with this method does not help at predicting the prices better than the linear regression model. The basic linear regression model has a RMSE that is indeed lower than that of the ridge regression model.
 
-Since we know that the linear basic regression model appears to be better than the ridge regression at predicting price, we can try to run it on the test set (which hasn't been touched throughout) this report.
+Since we know that the linear basic regression model appears to be better than the ridge regression at predicting price, we can try to run it on the test set (our saved piece for the final model, which hasn't been touched throughout this report).
 
 ```{r}
 
 #Use lm model created earlier and fit to validation data
 y_test <- predict(fit, test_set)
+
 ```
 
 Next, we can determine the values RMSE and rsq.
@@ -631,6 +662,11 @@ rsq
 
 After running the lm on the test set, we get an R-square of 0.2743, indicating that the linear regression model managed to explain nearly 27.5% of variation in prices of Airbnb's in Singapore. This can be significantly better but it gave a better result than the former ridge regression model, indicating that tuning the coefficients did not help improve our outcome in this case.
 
-4. Conclusion
+## 4. Conclusion
 
-From the analysis it can be concluded that 
+From the analysis it can be concluded that ridge regression in this case did not do a better job at predicting the price of Airbnb's in Singapore. Linear regression overall had a better performance. 
+
+It is important to note that there are many other ways that could improve the model even further. Due to time constraints, it was out of scope for the project at this time, but for future reference, other, more advanced methods could have been useful trying. This includes ensembling models. 
+
+
+
