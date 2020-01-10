@@ -2,7 +2,7 @@
 title: "Cya-harvard-airbnb"
 author: "Sarah Tomori"
 date: "04/01/2020"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -66,14 +66,12 @@ library("wesanderson")
 library("maps")
 library("mapproj")
 library("ggmap")
-library("textmining")
 library("tm")
 library("Hmisc")
 library("rpart")
 library("rsq")
 library("glmnet")
 library("neuralnet")
-library("stylo")
 ```
 
 Read the file with the Singapore Airbnb data.
@@ -229,7 +227,8 @@ Due to the continuous nature of the prices and the large variation in prices, it
 
 ```{r}
 #Check the most common prices
-most_common_prices <- airbnb_singapore %>% group_by(price) %>% summarise(count = n()) %>% top_n(20, count) %>% arrange(desc(count))
+most_common_prices <- airbnb_singapore %>% group_by(price) %>%
+summarise(count = n()) %>% top_n(20, count) %>% arrange(desc(count))
 most_common_prices
 #Check median price
 median(airbnb_singapore$price)
@@ -241,7 +240,8 @@ A display of the availability distribution can be shown as well.
 
 ```{r}
 #Check distributions of availability in the training set
-airbnb_singapore %>% ggplot(aes(availability_365)) + geom_histogram(bins = 20, fill = "#009999") +
+airbnb_singapore %>% ggplot(aes(availability_365))
++ geom_histogram(bins = 20, fill = "#009999") +
 ggtitle("Availability")
 ```
 
@@ -263,7 +263,7 @@ Next, let's see whether there is a difference in the average price levels across
 #Check distributions of listings in the various regions in training set
 
 avg_prices <- airbnb_singapore %>% group_by(neighbourhood_group) %>%
-summarize(region_avg = mean(price)) %>%
+summarise(region_avg = mean(price)) %>%
 arrange(-region_avg)
 avg_prices
 #Display them in a histogram
@@ -282,7 +282,8 @@ Additionally, we can show the neighbourhoods with the most listings.
 
 #First, save the number of listings in each neighbourhood.
 
-top_neighbourhoods <- airbnb_singapore %>% group_by(neighbourhood) %>% summarize(count = n()) %>% top_n(20, count) %>% arrange(desc(count))
+top_neighbourhoods <- airbnb_singapore %>% group_by(neighbourhood) %>%
+summarise(count = n()) %>% top_n(20, count) %>% arrange(desc(count))
 top_neighbourhoods
 
 #We can also show them in a bar chart.
@@ -321,14 +322,11 @@ It's also interesting to look at which words are most commonly used in the Airbn
 First, we need to clean the text. I first saved the columns with the Airbnb names as a text file.
 ```{r}
 #Now, we import the text file with the Airbnb names. We can read the file from GitHub
-filePath <- "https://github.com/sarahtomori/cyo-airbnb-singapore/blob/master/singapore-airbnb-names.txt"
+filePath <- "https://raw.githubusercontent.com/sarahtomori/cyo-airbnb-singapore/master/singapore-airbnb-names.txt"
 text <- readLines(filePath)
 
 #Read the data as a corpus
 docs <- Corpus(VectorSource(text))
-
-#Inspect the element of the document
-inspect(docs)
 ```
 
 
@@ -336,11 +334,9 @@ Now, the text can be transformed, which is done using tm_map in order to replace
 
 ```{r}
 #Replace special characters with text
-toSpace <- content_transformer(function (x , pattern ) gsub(pattern, " ", x))
-docs <- tm_map(docs, toSpace, "/")
-docs <- tm_map(docs, toSpace, "@")
-docs <- tm_map(docs, toSpace, "\\|")
-docs <- tm_map(docs, toSpace, "!")
+#Replace special characters with text
+toSpace <- content_transformer(function (x, pattern) gsub(pattern, " ", x))
+docs <- tm_map(docs, toSpace, "[[:punct:]]")
 ```
 
 The next step is to further clean the text. This among others includes converting to lower case and removing numbers.
@@ -474,7 +470,8 @@ Due to a lot of challenges with processing missing values, I decided to set the 
 
 ```{r}
 #Replace missing values in the last_review variable with the date of the first review
-airbnb_singapore$last_review <- ifelse(is.na(airbnb_singapore$last_review), as.Date(2013-10-21,  origin = "2013-10-21", tz = "GMT"), airbnb_singapore$last_review)
+airbnb_singapore$last_review <- ifelse(is.na(airbnb_singapore$last_review),
+as.Date(2013-10-21,  origin = "2013-10-21", tz = "GMT"), airbnb_singapore$last_review)
 
 airbnb_singapore[is.na(airbnb_singapore)] <- 0
 ```
@@ -490,14 +487,25 @@ airbnb_singapore$room_type <- as.factor(airbnb_singapore$room_type)
 validation$neighbourhood_group <- as.factor(validation$neighbourhood_group)
 airbnb_singapore$neighbourhood_group <- as.factor(airbnb_singapore$neighbourhood_group)
 
-#add all levels of 'neighbourhood' in 'validation' dataset to fit$xlevels[["neighbourhood"]] in the fit object
-fit$xlevels[["neighbourhood"]] <- union(fit$xlevels[["neighbourhood"]], levels(validation[["neighbourhood"]]))
+#Create lm model
+fit <- lm(price ~ host_id + longitude + latitude + latitude + number_of_reviews + calculated_host_listings_count + neighbourhood_group + neighbourhood + room_type + calculated_host_listings_count + availability_365, data = airbnb_singapore)
+step(fit, direction = "backward", trace = FALSE) #use backward elimination to remove
+#redundant variables
 
-#add all levels of 'room_type' in 'validation' dataset to fit$xlevels[["room_type"]] in the fit object
-fit$xlevels[["room_type"]] <- union(fit$xlevels[["room_type"]], levels(validation[["room_type"]]))
+#add levels of 'neighbourhood' in 'validation' dataset to fit$xlevels[["neighbourhood"]] in the
+#fit object
+fit$xlevels[["neighbourhood"]] <- union(fit$xlevels[["neighbourhood"]],
+levels(validation[["neighbourhood"]]))
 
-#add all levels of 'neighbourhood_group' in 'validation' dataset to fit$xlevels[["neighbourhood_group"]] in the fit object
-fit$xlevels[["neighbourhood_group"]] <- union(fit$xlevels[["neighbourhood_group"]], levels(validation[["neighbourhood_group"]]))
+#add levels of 'room_type' in 'validation' dataset to fit$xlevels[["room_type"]] in the
+#fit object
+fit$xlevels[["room_type"]] <- union(fit$xlevels[["room_type"]],
+levels(validation[["room_type"]]))
+
+#add levels of 'neighbourhood_group' in 'validation' dataset to
+#fit$xlevels[["neighbourhood_group"]] in the fit object
+fit$xlevels[["neighbourhood_group"]] <- union(fit$xlevels[["neighbourhood_group"]],
+levels(validation[["neighbourhood_group"]]))
 ```
 
 Now, we can define and run the lm model. Backward elimination was used to remove redundant variables.
@@ -507,8 +515,11 @@ Now, we can define and run the lm model. Backward elimination was used to remove
 set.seed(1)
 
 #Create lm model
-fit <- lm(price ~ host_id + longitude + latitude + latitude + number_of_reviews + calculated_host_listings_count + neighbourhood_group + neighbourhood + room_type + calculated_host_listings_count + availability_365, data = airbnb_singapore)
-step(fit, direction = "backward", trace = FALSE) #use backward elimination to remove redundant variables
+fit <- lm(price ~ host_id + longitude + latitude + latitude + number_of_reviews +
+calculated_host_listings_count + neighbourhood_group + neighbourhood + room_type +
+calculated_host_listings_count + availability_365, data = airbnb_singapore)
+#use backward elimination to remove redundant variables
+step(fit, direction = "backward", trace = FALSE)
 
 #Let's look at the coefficients
 fit$coefficients
@@ -550,7 +561,9 @@ First, we need to define the independent variables.
 
 ```{r}
 #Define the independent variables
-x_var <- model.matrix(airbnb_singapore$price ~ longitude + number_of_reviews + neighbourhood_group + calculated_host_listings_count + room_type + availability_365, data = airbnb_singapore)
+x_var <- model.matrix(airbnb_singapore$price ~ longitude + number_of_reviews +
+neighbourhood_group + calculated_host_listings_count + room_type + availability_365,
+data = airbnb_singapore)
 
 #Define the dependent variable
 y_var <- airbnb_singapore$price
@@ -609,7 +622,9 @@ After fitting the best lambda on the training set, the predict function can be u
 ```{r}
 #Define y and x variables from the validation set
 y_val <- validation$price
-x_val <- model.matrix(validation$price ~ longitude + number_of_reviews + calculated_host_listings_count + neighbourhood_group + room_type + availability_365, data = validation)
+x_val <- model.matrix(validation$price ~ longitude + number_of_reviews +
+calculated_host_listings_count + neighbourhood_group + room_type
++ availability_365, data = validation)
 
 #Save as a data frame
 val_data <- data.frame(x_val, y_val)
@@ -662,11 +677,12 @@ rsq
 
 After running the lm on the test set, we get an R-square of 0.2743, indicating that the linear regression model managed to explain nearly 27.5% of variation in prices of Airbnb's in Singapore. This can be significantly better but it gave a better result than the former ridge regression model, indicating that tuning the coefficients did not help improve our outcome in this case.
 
+The factors affecting the Airbnb prices appeared to be longitude, number of reviews, calculated host listings, neighbourhood group, room type and availability_365.
+
 ## 4. Conclusion
 
 From the analysis it can be concluded that ridge regression in this case did not do a better job at predicting the price of Airbnb's in Singapore. Linear regression overall had a better performance. 
 
 It is important to note that there are many other ways that could improve the model even further. Due to time constraints, it was out of scope for the project at this time, but for future reference, other, more advanced methods could have been useful trying. This includes ensembling models. 
-
 
 
