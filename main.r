@@ -287,7 +287,7 @@ RMSE(validation$price, y_hat)
 #and the r-squared
 rss_lm <- sum((validation$price - y_hat) ^ 2)  ## residual sum of squares
 tss_lm <- sum((validation$price - mean(y_hat)) ^ 2)  ## total sum of squares
-rsq_lm <- 1 - rss/tss
+rsq_lm <- 1 - rss_lm/tss_lm
 rsq_lm
 
 #Define the independent variables

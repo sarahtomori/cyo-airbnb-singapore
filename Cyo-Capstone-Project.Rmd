@@ -526,12 +526,12 @@ RMSE(validation$price, y_hat)
 #and the r-squared
 rss_lm <- sum((validation$price - y_hat) ^ 2)  ## residual sum of squares
 tss_lm <- sum((validation$price - mean(y_hat)) ^ 2)  ## total sum of squares
-rsq_lm <- 1 - rss/tss
+rsq_lm <- 1 - rss_lm/tss_lm
 rsq_lm
 ```
 
 
-RMSE is 160.6531, which is just a bit lower than what the earlier calculated mean. 
+RMSE is 160.6531, which is just a bit lower than what the earlier calculated mean. R-squared is 0.2061545, so the model only explains about 21% of the variation from predicted prices.
 
 ### 3.1 The ridge regression model
 
