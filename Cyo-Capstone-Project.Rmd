@@ -9,17 +9,52 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-#1. Introduction
+## 1. Overview
+### 1.1 Introduction
 
 This project is part of the Harvard course "Capstone", which is one of 9 required in order to obtain a professional certificate in Data Science. 
 
-In this "Choose Your Own"-project, I have chosen to use the dataset from Kaggle.com, consisting of Airbnb data in Singapore. Airbnb has gained popularity all over the world and is among many travellers a preferred form of accomodation over hotels. Thus, the hotel industry faces a lot of competetion from these private house owners looking to rent out their homes to holiday visiters. 
+In this "Choose Your Own"-project, I have chosen to use the dataset from Kaggle.com, consisting of Airbnb data in Singapore. Airbnb has gained popularity all over the world and is among many travellers a preferred form of accomodation over hotels. Thus, the hotel industry faces a lot of competetion from these private house owners looking to rent out their homes to holiday visitors. 
 
-A various number of things could contribute to determining, how much should be charged for a visitor to stay in an Airbnb. Thus, the purpose of the project is to try to predict, which factors (variable) that affect the price of an Airbnb in Singapore the most. 
+### 1.2 Purpose of the project
 
- Load all the packages required.
+The sharing economy is becoming more and more widespread not only through housing options such as Airbnb but also through services such as Uber and general ridesharing services, crowdfunding, knowledge sharing and many other fields. For this reason, it is a very interesting area to look into and discover how such prices are actually determined. 
+
+Airbnb has, as mentioned, competed against many hotels due to there competitive prices and general flexibility. However, there are a various number of things could contribute to determining, how much should be charged for a visitor to stay in an Airbnb. Thus, the purpose of the project is to try to predict, which factors (variables) that affect the price of an Airbnb in Singapore and which machine learning algorithms do the best job at doing so.
+
+In order to determine the best model, RMSE and R-squared will be used as to make informed decisions on the best model. The model that produces the lowest value of RMSE will be the final model and rerun on the test set in the end, which corresponds to the data that hasn’t yet been touched by our model prior to this. The r-squared will also be used to give an indication of how much variation the model actually explains. 
+
+## 2. Method and analysis
+
+In this section, the Singapore Airbnb dataset is explored with the help of different visualisation tools and data cleansing. This is an important step prior to our analysis, as it helps us understand the structure of the data and minimize the risk of disturbances that could bias results when training the model to be used for predicting Airbnb prices.
+
+### 2.1 Preparing the data
+
+First, we need to install and load all the packages required.
 
 ```{r}
+#Install required packages
+install.packages("readr")
+install.packages("caret")
+install.packages("magrittr")
+install.packages("dplyr")
+install.packages("wordcloud")
+install.packages("SnowballC")
+install.packages("corrplot")
+install.packages("wesanderson")
+install.packages("maps")
+install.packages("mapproj")
+install.packages("ggmap")
+install.packages("textmining")
+install.packages("tm")
+install.packages("Hmisc")
+install.packages("rpart")
+install.packages("rsq")
+install.packages("glmnet")
+install.packages("neuralnet")
+install.packages("stylo")
+
+#Download the packages
 library("readr")
 library("caret")
 library("magrittr")
@@ -32,11 +67,13 @@ library("maps")
 library("mapproj")
 library("ggmap")
 library("textmining")
+library("tm")
 library("Hmisc")
 library("rpart")
 library("rsq")
 library("glmnet")
 library("neuralnet")
+library("stylo")
 ```
 
 Read the file with the Singapore Airbnb data.
@@ -53,7 +90,7 @@ download.file("http://data.insideairbnb.com/singapore/sg/singapore/2019-11-26/vi
 data <- read_csv(dl)
 ```
 
-Then you need to create the test set, which will be 10% of the whole data set. The test set will be kept till the very end and will ONLY be used to run the finally chosen algorithm on.
+Then we need to create the test set, which will be 10% of the whole Airbnb Singapore data set. The test set will be kept till the very end and will ONLY be used to run the finally chosen algorithm on.
 
 ```{r}
 # Create test set as 10% of the dataset
@@ -68,14 +105,14 @@ You need to make sure that the host id that is present in the test set is also p
 ```{r}
 # Make sure that host_id in the test set are present in the airbnb_singapore set
 test_set <- temp %>%
-  semi_join(airbnb_singapore, by = "host_id")
+semi_join(airbnb_singapore, by = "host_id")
 # Add rows removed from test set back into airbnb_singapore set
 removed <- anti_join(temp, test_set)
 airbnb_singapore <- rbind(airbnb_singapore, removed)
 rm(temp, data, removed)
 ```
 
-A validation set is also created and this set is meant to test the intermediary models when training, before deciding on the best and final model.
+A validation set is also created and this set is meant to test the intermediary models when training, before deciding on the best and final model. The chosen final model will then be used on the test set.
 
 ```{r}
 # Split airbnb_singapore data further in to validation and training sets
@@ -99,37 +136,46 @@ train_set <- rbind(train_set, removed)
 rm(temp2, removed)
 ```
 
-## 1.2 Exploring the data
+### 2.2 Data and exploration
 
-The next step is to explore the data before analysing it. As the data is taken from Kaggle.com and is ready to use, not much data cleaning was necessesary to do beforehand.
+#### 2.2.1 Overview
+
+The next step is to explore the data before analysing it. As the data is taken from Kaggle.com and is ready to use, not much data cleaning was necessesary to do beforehand but we need to do quite a bit of visualisation.
+
+#### 2.2.2 Data exploration
+
+We are going to explore what kind of class our dataset falls into. Based in the class() function in RStudio, this is shown below. We can see that the data is a data frame.
 
 ```{r}
 # Check class of data
 class(airbnb_singapore)
 ```
 
-We can see that our data is a data frame.
+We can see that our data is a data frame. Next, we can use the glimpse() function to get an overview of the different variables.
 
 ```{r}
 # Get brief overview of the data
 glimpse(airbnb_singapore)
 ```
 
-From above, it is shown that there are 16 variables in the data set. id is used to identify the Airbnb listing and is unique for each listing. host_id is used to identify the host responsible for the respective listing - it is possible for a host to have more than one listing, if they rent out more than one Airbnb.
+From above, it is shown that data (without our test set which is kept for the end) contains 7,277 observations and there are 16 variables in the data set. id is used to identify the Airbnb listing and is unique for each listing. host_id is used to identify the host responsible for the respective listing. Thus, is is possible for a host to have more than one listing, if they are renting out more than one Airbnb.
  
+Next, let's look at a summary of the data as well. 
 ```{r}
 # See a summary of the data
 summary(airbnb_singapore)
 ```
 
-Looking at this summary, we see that the minimum minimum price shown is 0 Singaporean dollars per night while the maximum shown is 10000 Singaporean dollars per night.
+Looking at this summary, we see that the minimum minimum price shown is 0 Singaporean dollars per night while the maximum shown is 10000 Singaporean dollars per night. The maximum number of reviews found is 345, while the minimum is 0, due to some Airbnb's never having been reviewed.
 
 ```{r}
 # Check whether there are any missing values
 anyNA(airbnb_singapore)
 ```
 
-There are some missing values in the dataset. We might have to process that before starting the analysis.
+There are some missing values in the dataset. We might have to process that later before starting the analysis.
+
+We can also show the number of unique price values can be found in the dataset.
 
 ```{r}
 # Show unique values of airbnb prices
@@ -139,16 +185,16 @@ unique(airbnb_singapore$price)
 n_distinct(unique(airbnb_singapore$price))
 ```
 
-There is a great range of various unique prices, which is due to the continuous nature of this variable. In fact, there are 364 different prices in the dataset.
+There is a great range of various unique prices, which is due to the continuous nature of this variable. In fact, there are 364 different prices in the dataset. This is just to get an overview, as counting the number of unique price values is not as explanative as doing so with discrete variables.
 
 Next, we can show how many hosts, listings, regions, neighbourhoods and types of rooms the dataset contains in total.
 
 ```{r}
 # Show number of hosts, listings, regions, neighbourhoods and room types
-airbnb_singapore %>% summarize(n_hosts = n_distinct(host_id), n_listings = n_distinct(id), n_regions = n_distinct(neighbourhood_group), n_neighbourhoods = n_distinct(neighbourhood), n_types = n_distinct(room_type))
+airbnb_singapore %>% summarise(n_hosts = n_distinct(host_id), n_listings = n_distinct(id), n_regions = n_distinct(neighbourhood_group), n_neighbourhoods = n_distinct(neighbourhood), n_types = n_distinct(room_type))
 ```
 
-This shows that there are 2705 hosts, 7305 listings, 5 regions, 43 neighbourhoods and 3 types of rooms possible to rent. The fact that the number of hosts is less than half the number of listings, confirms the earlier statement claiming that some hosts will likely be hosts for more than one listing.
+This shows that there are 2626 hosts, 7277 listings, 5 regions, 44 neighbourhoods and 3 types of rooms possible to rent. The fact that the number of hosts is less than half the number of listings, which confirms the earlier statement claiming that some hosts will likely be hosts for more than one rental or listing.
 
 Next, we will look at the minimum nights required in order to stay in an Airbnb in Singapore.
 ```{r}
@@ -156,7 +202,7 @@ Next, we will look at the minimum nights required in order to stay in an Airbnb 
 mean(airbnb_singapore$minimum_nights)
 ```
 
-The average minimum number of nights required to stay at an Airbnb is 17.59 nights. This indicates that many owners require you to stay for a longer period of time in order to rent out their accommodation. However, it could also be an indication that there are many listings available on the Singaporean Airbnb platform with the purpose of long duration rental.
+The average minimum number of nights required to stay at an Airbnb is 18.4943 nights. This indicates that many owners require you to stay for a longer period of time in order to rent out their accommodation. However, it could also be an indication that there are many listings available on the Singaporean Airbnb platform with the purpose of long duration rental.
 
 We can also show what the average price level is per night in Singapore.
 ```{r}
@@ -164,30 +210,32 @@ We can also show what the average price level is per night in Singapore.
 mean(airbnb_singapore$price)
 ```
 
-The average price is 168 Singaporean dollars.
+The average price is 169.8464 Singaporean dollars.
 
-# Visualisation of the data 
+### 2.3 Visualisation of the data
 
 It is necessary to review how our data looks before we proceed to the analysing stage of the project. 
 
 First, a histogram is created to show the distribution of prices among the various listings.
 ```{r}
 # Price distributions in the training set
-airbnb_singapore %>% ggplot(aes(price)) + geom_histogram(color = "#000000", fill = "#FFCCCC") +
+airbnb_singapore %>% ggplot(aes(price)) + geom_histogram(bins = 10, color = "#000000", fill = "#FFCCCC") +
 ggtitle("Distribution of prices across Airbnbs")
 ```
 
-From the histogram above, we see that majority of the Airbnb listings are in the cheaper end of the scale. The further to the right one looks, the fewer Airbnbs are typically to find at that price level. It also shows that there are many various price levels once the Airbnb costs less than 25 Singaporean dollars per night.
+From the histogram above, we see that majority of the Airbnb listings are below a 1000 Singaporean dollars and only few are at much higher end of the scale. The further to the right one looks, the fewer Airbnbs are typically to find at that price level. It also shows that there are many various price levels once the Airbnb costs less than 25 Singaporean dollars per night.
 
-Due to the continuous nature of the prices and the large variation in prices, it is a bit hard to interpret the above histogram. Instead, we can also see the top 20 most common prices
+Due to the continuous nature of the prices and the large variation in prices, it is a bit hard to interpret the above histogram. Instead, we can also see the top 20 most common prices.
 
 ```{r}
 #Check the most common prices
-most_common_prices <- airbnb_singapore %>% group_by(price) %>% summarize(count = n()) %>% top_n(20, count) %>% arrange(desc(count))
+most_common_prices <- airbnb_singapore %>% group_by(price) %>% summarise(count = n()) %>% top_n(20, count) %>% arrange(desc(count))
 most_common_prices
+#Check median price
+median(airbnb_singapore$price)
 ```
 
-It is found that 50 Singaporean dollars is the most common price with 203 priced at this level. Secondly, 60 Singaporean dollars is commonly used to price Airbnbs as well.
+It is found that 50 Singaporean dollars is the most common price with 203 priced at this level. Secondly, 60 Singaporean dollars is commonly used to price Airbnbs as well. The median price for an Airbnb is 120 Singaporean dollars.
 
 A display of the availability distribution can be shown as well.
 
@@ -197,9 +245,9 @@ airbnb_singapore %>% ggplot(aes(availability_365)) + geom_histogram(bins = 20, f
 ggtitle("Availability")
 ```
 
-The graph shows that while some are only available less than 300 days a year, the far majority of Airbnbs are actually available for rent all 365 days or at least close to all.
+The graph shows that while some are only available less than 300 days a year, the far majority of Airbnbs are actually available for rent all 365 days or at least close to that.
 
-The distribution below shows the number of listings in each regions. Each listing have a unique id, thus, by counting the id variable, we assume this will give us the total number of listings, as an Airbnb should only be listed on the website once.
+The distribution below shows the number of listings in each regions. Each listing has a unique id. Thus, by counting the id variable, we assume this will give us the total number of listings, as an Airbnb should only be listed on the website once.
 
 ```{r}
 #Check distributions of listings in the various regions in training set
@@ -375,18 +423,15 @@ The correlation matrix above shows the variables that are positively correlated 
 
 #Data analysis
 
-Now that we have reviewed and visualised the data, it is time to decide, which algorithm that does the best job at predicting the price of renting an Airbnb in Singapore.
+Now that we have reviewed and visualised the data, it is time to decide, which algorithm that does the best job at predicting the price of renting an Airbnb in Singapore. It was quite clear that it is a regression problem, as we are interested in predicting Airbnb price, which is a continuous variable.
 
-I used the Spatial Hedonic Price Model (a type of OLS regression) and
+I first tried with a basic linear regression model (OLS regression) and then the Ridge and Lasso regression models.
 
-The Gradient Boosting method, with the XGBRegressor.
-
-In order to evaluate the best model, RMSE (residual mean squared error) was used to choose the model with the smallest loss.
-
+In order to evaluate the best model, RMSE (residual mean squared error) was used to choose the model with the smallest loss, because this is what determines how close it is to predicting actual prices. R-squared is also used to predict, how much of the variation the algorithm manages to predict.
 
 ```{r}
 #First, we define the function that calculates RMSE
-RMSE <- function(true_price, predicted_prices){
+RMSE <- function(true_price, predicted_price){
 sqrt(mean((true_price - predicted_price)^2, na.rm=T))
 }
 ```
@@ -412,24 +457,35 @@ This number is huge and is obviously a very poor estimate of predicting the pric
 First, we can try the most basic linear regression model. This is commonly used to for ML predictions but is a very simple model that works particularly well if there is a high level of linearity.
 
 ```{r}
-#Create lm model
-fit <- lm(price ~ host_id + longitude + latitude + latitude + number_of_reviews + calculated_host_listings_count + neighbourhood_group + neighbourhood + room_type + calculated_host_listings_count + last_review + availability_365, data = airbnb_singapore)
-step(fit, direction = "backward", trace = FALSE) #use backward elimination to remove redundant variables
 
-#Let's look at the coefficients
-fit$coefficients
+#Replace missing values in the last_review variable with the date of the first review
+airbnb_singapore$last_review <- ifelse(is.na(airbnb_singapore$last_review), as.Date(2013-10-21,  origin = "2013-10-21", tz = "GMT"), airbnb_singapore$last_review)
 
-#Save neighbourhood and room_type variables as factor in both training and validation sets
+airbnb_singapore[is.na(airbnb_singapore)] <- 0
+
+#Save neighbourhood, neighbourhood_group and room_type variables as factor in both training and validation sets
 validation$neighbourhood <- as.factor(validation$neighbourhood)
 airbnb_singapore$neighbourhood <- as.factor(airbnb_singapore$neighbourhood)
 validation$room_type <- as.factor(validation$room_type)
 airbnb_singapore$room_type <- as.factor(airbnb_singapore$room_type)
+validation$neighbourhood_group <- as.factor(validation$neighbourhood_group)
+airbnb_singapore$neighbourhood_group <- as.factor(airbnb_singapore$neighbourhood_group)
 
 #add all levels of 'neighbourhood' in 'validation' dataset to fit$xlevels[["neighbourhood"]] in the fit object
 fit$xlevels[["neighbourhood"]] <- union(fit$xlevels[["neighbourhood"]], levels(validation[["neighbourhood"]]))
 
 #add all levels of 'room_type' in 'validation' dataset to fit$xlevels[["room_type"]] in the fit object
 fit$xlevels[["room_type"]] <- union(fit$xlevels[["room_type"]], levels(validation[["room_type"]]))
+
+#add all levels of 'neighbourhood_group' in 'validation' dataset to fit$xlevels[["neighbourhood_group"]] in the fit object
+fit$xlevels[["neighbourhood_group"]] <- union(fit$xlevels[["neighbourhood_group"]], levels(validation[["neighbourhood_group"]]))
+
+#Create lm model
+fit <- lm(price ~ host_id + longitude + latitude + latitude + number_of_reviews + calculated_host_listings_count + neighbourhood_group + neighbourhood + room_type + calculated_host_listings_count + availability_365, data = airbnb_singapore)
+step(fit, direction = "backward", trace = FALSE) #use backward elimination to remove redundant variables
+
+#Let's look at the coefficients
+fit$coefficients
 
 #Use the predict function
 y_hat <- predict(fit, validation)
@@ -441,6 +497,11 @@ Next, we can see whether this model does any better than the basic mean.
 #Check squared loss
 mean((y_hat - validation$price)^2)
 RMSE(validation$price, y_hat)
+#and the r-squared
+rss_lm <- sum((validation$price - y_hat) ^ 2)  ## residual sum of squares
+tss_lm <- sum((validation$price - mean(y_hat)) ^ 2)  ## total sum of squares
+rsq_lm <- 1 - rss/tss
+rsq_lm
 ```
 
 
@@ -455,59 +516,107 @@ If L is large, then coefficients will move towards zero. The glmnet package in R
 Note: I decided the last_review variable as it contains similar information as number of reviews, and it caused a lot of issues with NAs.
 
 ```{r}
-
-#Find the earliest review date in the data set
-sort.POSIXlt(airbnb_singapore$last_review, origin = "1970-01-01", tz = "GMT")
-
-#Replace missing values in the last_review variable with the date of the first review
-airbnb_singapore$last_review <- ifelse(is.na(airbnb_singapore$last_review), as.Date(2013-10-21,  origin = "2013-10-21", tz = "GMT"), airbnb_singapore$last_review)
-
-airbnb_singapore[is.na(airbnb_singapore)] <- 0
+#Define the independent variables
+x_var <- model.matrix(airbnb_singapore$price ~ longitude + number_of_reviews + neighbourhood_group + calculated_host_listings_count + room_type + availability_365, data = airbnb_singapore)
 
 #Define the dependent variable
 y_var <- airbnb_singapore$price
 
-#Define the independent variables
-x_var <- data.matrix(airbnb_singapore[, c("host_id", "longitude", "latitude", "calculated_host_listings_count", "neighbourhood", "last_review", "room_type", "availability_365")])
-
 # Setting the range of lambda values
 lambda_seq <- 10^seq(2, -2, by = -.1)
 
-train <- data.frame(x_var, y_var)
+train_data <- data.frame(x_var, y_var)
 
-model_glmnet <- train(y_var ~ ., data = train,
+model_glmnet <- train(y_var ~ ., data = train_data,
 method = "glmnet",
 metric = "RMSE",
 na.action = na.replace,
-alpha = 0, lambda  = lambda_seq
+lambda  = lambda_seq
 )
 
 #Check the model
 summary(model_glmnet)
 model_glmnet
 
-cvfit = cv.glmnet(x_var, y_var)
-
 #Choose the optimal lambda value
 # Using cross validation glmnet
-ridge_cv <- cv.glmnet(x_var, y_var, alpha = 0, lambda = lambdas)
+ridge_cv <- cv.glmnet(x_var, y_var, lambda = lambda_seq)
 # Best lambda value
-best_lambda <- model_glmnet$lambda.min
+best_lambda <- ridge_cv$lambda.min
 best_lambda
 
 ```
 
+Cross validation was necessary in order to punish the loss function of high coefficient values in the model. By using cross validation and finding the best_lambda, we see that the lambda providing the best value of RMSE was 0.1258925.
 
+Next, we continue to build the final model.
 
 ```{r}
-#Save several models to build a model with several machine learning algorithms
+#Find the best ridge model
+best_ridge <- glmnet(x_var, y_var, alpha = 0, lambda =  best_lambda)
 
-models <- c("glm", "lda", "naive_bayes", "svmLinear",
-"gamboost", "gamLoess", "qda",
-"knn", "kknn", "loclda", "gam",
-"rf", "ranger", "wsrf", "Rborist",
-"avNNet", "mlp", "monmlp",
-"adaboost", "gbm",
-"svmRadial", "svmRadialCost", "svmRadialSigma")
+#Get the coefficients
+coef(best_ridge)
+
 ```
 
+After fitting the best lambda on the training set, the predict function can be used to fit the ridge regression on the validation set.
+
+```{r}
+#Define y and x variables from the validation set
+y_val <- validation$price
+x_val <- model.matrix(validation$price ~ longitude + number_of_reviews + calculated_host_listings_count + neighbourhood_group + room_type + availability_365, data = validation)
+
+#Save as a data frame
+val_data <- data.frame(x_val, y_val)
+
+#Save the data in a data frame
+val_data <- data.frame(x_val, y_val)
+
+#Use predict function and fit to validation data
+glmnet_pred_val <- predict(best_ridge, s = best_lambda, newx = x_val)
+```
+
+Let's try to see the values of RMSE and r-squared.
+
+```{r}
+#Calculate the MSE
+mean((glmnet_pred_val - y_val)^2)
+#and the RMSE
+RMSE(validation$price, glmnet_pred_val)
+#and the r-squared
+rss <- sum((glmnet_pred_val - y_val) ^ 2)  ## residual sum of squares
+tss <- sum((y_val - mean(glmnet_pred_val)) ^ 2)  ## total sum of squares
+rsq <- 1 - rss/tss
+rsq
+```
+
+It appears that the values of r-square and RMSE are doing worse when using the ridge regression. This indicates that tuning the parameters with this method does not help at predicting the prices better than the linear regression model. The basic linear regression model has a RMSE that is indeed lower than that of the ridge regression model.
+
+Since we know that the linear basic regression model appears to be better than the ridge regression at predicting price, we can try to run it on the test set (which hasn't been touched throughout) this report.
+
+```{r}
+
+#Use lm model created earlier and fit to validation data
+y_test <- predict(fit, test_set)
+```
+
+Next, we can determine the values RMSE and rsq.
+
+```{r}
+#Calculate the MSE
+mean((y_hat - test_set$price)^2)
+#and the RMSE
+RMSE(test_set$price, y_test)
+#and the r-squared
+rss <- sum((y_test - test_set$price) ^ 2)  ## residual sum of squares
+tss <- sum((test_set$price - mean(y_test)) ^ 2)  ## total sum of squares
+rsq <- 1 - rss/tss
+rsq
+```
+
+After running the lm on the test set, we get an R-square of 0.2743, indicating that the linear regression model managed to explain nearly 27.5% of variation in prices of Airbnb's in Singapore. This can be significantly better but it gave a better result than the former ridge regression model, indicating that tuning the coefficients did not help improve our outcome in this case.
+
+4. Conclusion
+
+From the analysis it can be concluded that 

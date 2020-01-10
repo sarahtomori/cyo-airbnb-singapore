@@ -1,3 +1,24 @@
+#Install required packages
+install.packages("readr")
+install.packages("caret")
+install.packages("magrittr")
+install.packages("dplyr")
+install.packages("wordcloud")
+install.packages("SnowballC")
+install.packages("corrplot")
+install.packages("wesanderson")
+install.packages("maps")
+install.packages("mapproj")
+install.packages("ggmap")
+install.packages("textmining")
+install.packages("tm")
+install.packages("Hmisc")
+install.packages("rpart")
+install.packages("rsq")
+install.packages("glmnet")
+install.packages("neuralnet")
+install.packages("stylo")
+
 #Load the libraries
 
 library("readr")
@@ -12,11 +33,13 @@ library("maps")
 library("mapproj")
 library("ggmap")
 library("textmining")
+library("tm")
 library("Hmisc")
 library("rpart")
 library("rsq")
 library("glmnet")
 library("neuralnet")
+library("stylo")
 
 #Read the file with the Singapore Airbnb data. 
 
@@ -76,7 +99,7 @@ anyNA(airbnb_singapore)
 unique(airbnb_singapore$price)
 
 # Show number of hosts, listings, regions, neighbourhoods and room types
-airbnb_singapore %>% summarize(n_hosts = n_distinct(host_id), n_listings = n_distinct(id), n_regions = n_distinct(neighbourhood_group), n_neighbourhoods = n_distinct(neighbourhood), n_types = n_distinct(
+airbnb_singapore %>% summarise(n_hosts = n_distinct(host_id), n_listings = n_distinct(id), n_regions = n_distinct(neighbourhood_group), n_neighbourhoods = n_distinct(neighbourhood), n_types = n_distinct(
 room_type))
 
 # Show average minimum nights required
@@ -91,12 +114,12 @@ airbnb_singapore %>% count(price) %>%
 ggplot(aes(n)) + geom_histogram(fill = "#FF3366", color = "#000000", bins = 30) +
 scale_x_log10() + ggtitle("Prices of vs. number of listings") + xlab("Prices") + ylab("Listings")
 
-#Check distributions of ratings in the training set
-airbnb_singapore %>% ggplot(aes(price)) + geom_histogram(bins = 30, binwidth=0.2, color = "azure3", fill = "deepskyblue4") +
-ggtitle("Pricing distribution")
+#Check distributions of prices in the training set
+airbnb_singapore %>% ggplot(aes(price)) + geom_histogram(bins = 10, color = "#000000", fill = "#FFCCCC") +
+  ggtitle("Distribution of prices across Airbnbs")
 
 #Check the most common prices
-most_common_prices <- airbnb_singapore %>% group_by(price) %>% summarize(count = n()) %>% top_n(20, count) %>% arrange(desc(count))
+most_common_prices <- airbnb_singapore %>% group_by(price) %>% summarise(count = n()) %>% top_n(20, count) %>% arrange(desc(count))
 most_common_prices
 
 #Check distributions of availability in the training set
@@ -104,23 +127,23 @@ airbnb_singapore %>% ggplot(aes(availability_365)) + geom_histogram(bins = 20, f
 ggtitle("Availability")
 
 #Check distributions of listings in the various regions in training set
-airbnb_singapore %>% ggplot(aes(neighbourhood_group)) + geom_bar(bins = 20, fill = "#3399FF") +
+airbnb_singapore %>% ggplot(aes(neighbourhood_group)) + geom_bar(fill = "#3399FF") +
 ggtitle("Number of listings in regions")
 
 #Check distributions of listings in the various regions in training set
 avg_prices <- airbnb_singapore %>% group_by(neighbourhood_group) %>%
-summarize(region_avg = mean(price)) %>%
+summarise(region_avg = mean(price)) %>%
 arrange(-region_avg)
 avg_prices
 #Display them in a histogram
 avg_prices %>% ggplot(aes(reorder(neighbourhood_group, region_avg), region_avg, fill = region_avg)) +
 geom_bar(stat = "identity") + coord_flip() +
-scale_fill_distiller(palette = "YlOrRed") + labs(y = "Region price mean", x = "Region") +
+scale_fill_distiller(palette = "Greens") + labs(y = "Region price mean", x = "Region") +
 ggtitle("Average Airbnb prices of regions")
 
 #First, save the number of listings in each neighbourhood.
 
-top_neighbourhoods <- airbnb_singapore %>% group_by(neighbourhood) %>% summarize(count = n()) %>% top_n(20, count) %>% arrange(desc(count))
+top_neighbourhoods <- airbnb_singapore %>% group_by(neighbourhood) %>% summarise(count = n()) %>% top_n(20, count) %>% arrange(desc(count))
 top_neighbourhoods
 
 #We can also show them in a bar chart.
@@ -130,7 +153,7 @@ scale_fill_distiller(palette = "Reds") + labs(y = "Number", x = "Neighbourhood")
 ggtitle("Popular neighbourhoods")
 
 #Check distributions of listings in the various room types in training set
-airbnb_singapore %>% ggplot(aes(room_type)) + geom_bar(bins = 20, fill = "#9999FF") +
+airbnb_singapore %>% ggplot(aes(room_type)) + geom_bar(fill = "#9999FF") +
 ggtitle("Number of listings in regions")
 
 #Check distributions of review count in the training set
@@ -211,7 +234,7 @@ corrplot(cordata.cor)
 
 #Data analysis
 #First, we define the function that calculates RMSE
-RMSE <- function(true_price, predicted_prices){
+RMSE <- function(true_price, predicted_price){
 sqrt(mean((true_price - predicted_price)^2, na.rm=T))
 }
 
@@ -246,7 +269,7 @@ fit$xlevels[["room_type"]] <- union(fit$xlevels[["room_type"]], levels(validatio
 fit$xlevels[["neighbourhood_group"]] <- union(fit$xlevels[["neighbourhood_group"]], levels(validation[["neighbourhood_group"]]))
 
 #Create lm model
-fit <- lm(price ~ host_id + longitude + latitude + latitude + number_of_reviews + calculated_host_listings_count + neighbourhood_group + neighbourhood + room_type + calculated_host_listings_count + last_review + availability_365, data = airbnb_singapore)
+fit <- lm(price ~ host_id + longitude + latitude + latitude + number_of_reviews + calculated_host_listings_count + neighbourhood_group + neighbourhood + room_type + calculated_host_listings_count + availability_365, data = airbnb_singapore)
 step(fit, direction = "backward", trace = FALSE) #use backward elimination to remove redundant variables
 
 #Let's look at the coefficients
@@ -258,13 +281,13 @@ y_hat <- predict(fit, validation)
 #Check squared loss
 mean((y_hat - validation$price)^2)
 RMSE(validation$price, y_hat)
-
-#Find the earliest review date in the data set
-sort.POSIXlt(airbnb_singapore$last_review, origin = "1970-01-01", tz = "GMT")
+#and the r-squared
+rss_lm <- sum((validation$price - y_hat) ^ 2)  ## residual sum of squares
+tss_lm <- sum((validation$price - mean(y_hat)) ^ 2)  ## total sum of squares
+rsq_lm <- 1 - rss/tss
+rsq_lm
 
 #Define the independent variables
-x_var <- data.matrix(airbnb_singapore[, c("longitude", "calculated_host_listings_count", "neighbourhood", "number_of_reviews", "room_type", "availability_365")])
-x_var <- model.matrix(airbnb_singapore$price ~ longitude + number_of_reviews + calculated_host_listings_count + neighbourhood + room_type + availability_365, data = airbnb_singapore)
 x_var <- model.matrix(airbnb_singapore$price ~ longitude + number_of_reviews + neighbourhood_group + calculated_host_listings_count + room_type + availability_365, data = airbnb_singapore)
 
 #Define the dependent variable
@@ -301,21 +324,23 @@ coef(best_ridge)
 
 #Define y and x variables from the validation set
 y_val <- validation$price
-x_val <- data.matrix(validation[, c("longitude", "calculated_host_listings_count", "neighbourhood", "number_of_reviews", "room_type", "availability_365")])
 x_val <- model.matrix(validation$price ~ longitude + number_of_reviews + calculated_host_listings_count + neighbourhood_group + room_type + availability_365, data = validation)
 
+#Save as a data frame
 val_data <- data.frame(x_val, y_val)
 
 #Use predict function and fit to validation data
 glmnet_pred_val <- predict(best_ridge, s = best_lambda, newx = x_val)
 
+#Use lm model created earlier and fit to validation data
+y_test <- predict(fit, test_set)
+
 #Calculate the MSE
-mean((glmnet_pred_val - y_val)^2)
+mean((y_hat - test_set$price)^2)
 #and the RMSE
-RMSE(validation$price, glmnet_pred_val)
+RMSE(test_set$price, y_test)
 #and the r-squared
-rss <- sum((glmnet_pred_val - y_val) ^ 2)  ## residual sum of squares
-tss <- sum((y_val - mean(glmnet_pred_val)) ^ 2)  ## total sum of squares
+rss <- sum((y_test - test_set$price) ^ 2)  ## residual sum of squares
+tss <- sum((test_set$price - mean(y_test)) ^ 2)  ## total sum of squares
 rsq <- 1 - rss/tss
 rsq
-
