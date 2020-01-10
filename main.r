@@ -259,6 +259,11 @@ airbnb_singapore$room_type <- as.factor(airbnb_singapore$room_type)
 validation$neighbourhood_group <- as.factor(validation$neighbourhood_group)
 airbnb_singapore$neighbourhood_group <- as.factor(airbnb_singapore$neighbourhood_group)
 
+
+#Create lm model
+fit <- lm(price ~ host_id + longitude + latitude + latitude + number_of_reviews + calculated_host_listings_count + neighbourhood_group + neighbourhood + room_type + calculated_host_listings_count + availability_365, data = airbnb_singapore)
+step(fit, direction = "backward", trace = FALSE) #use backward elimination to remove redundant variables
+
 #add all levels of 'neighbourhood' in 'validation' dataset to fit$xlevels[["neighbourhood"]] in the fit object
 fit$xlevels[["neighbourhood"]] <- union(fit$xlevels[["neighbourhood"]], levels(validation[["neighbourhood"]]))
 
@@ -267,13 +272,6 @@ fit$xlevels[["room_type"]] <- union(fit$xlevels[["room_type"]], levels(validatio
 
 #add all levels of 'neighbourhood_group' in 'validation' dataset to fit$xlevels[["neighbourhood_group"]] in the fit object
 fit$xlevels[["neighbourhood_group"]] <- union(fit$xlevels[["neighbourhood_group"]], levels(validation[["neighbourhood_group"]]))
-
-#Set seed
-set.seed(1)
-
-#Create lm model
-fit <- lm(price ~ host_id + longitude + latitude + latitude + number_of_reviews + calculated_host_listings_count + neighbourhood_group + neighbourhood + room_type + calculated_host_listings_count + availability_365, data = airbnb_singapore)
-step(fit, direction = "backward", trace = FALSE) #use backward elimination to remove redundant variables
 
 #Let's look at the coefficients
 fit$coefficients
